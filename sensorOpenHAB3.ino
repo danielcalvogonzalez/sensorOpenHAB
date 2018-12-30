@@ -76,6 +76,7 @@ long lastBlink = 0;
 char msg[10];
 
 int intento = 0;
+int nLoop = 0;
 
 byte macAddress[6];
 IPAddress ip, gw, mask;
@@ -141,7 +142,9 @@ void getIntervalValue(void) {
 
     // URLrequest contiene la petición REST formada
 
+    DebugPrint("Actualizando el valor de INTERVAL\n");
     DebugPrint(URLrequest);
+    DebugPrint("\n");
     
     http.begin(URLrequest); 
     httpCode = http.GET();                                                                  //Send the request
@@ -150,9 +153,14 @@ void getIntervalValue(void) {
         String payload = http.getString();   //Get the request response payload
         payload.toCharArray(temporal, 10);
         numero = atol(temporal);
-        Serial.printf("La cadena es %s y el valor %l\n",temporal, numero);
+        Serial.printf("La cadena es %s y el valor %ld\n",temporal, numero);
+        if (numero > 0) INTERVALO = numero;
     }
-    http.end();  
+    http.end();
+#ifdef DEBUG
+    USE_SERIAL.printf("Interval value %ld\n", INTERVALO);
+#endif
+    
 }
 
 /**
@@ -192,6 +200,49 @@ boolean getSensorName(void) {
     else return true;
 }
 
+boolean sendSensorValue(char *URLToSend, char *msg) {
+    HTTPClient  http;
+    int         httpCode;
+    
+    http.begin(URLToSend); //HTTP
+
+#ifdef DEBUG    
+    USE_SERIAL.print("[HTTP] PUT: Value: ");
+    USE_SERIAL.println(msg);
+#endif
+
+    // start connection and send HTTP header
+    
+    httpCode = http.sendRequest("PUT", msg);
+
+#ifdef DEBUG
+    USE_SERIAL.print("URL a usar ");
+    USE_SERIAL.println(URLToSend);  
+#endif
+
+    // httpCode will be negative on error
+    if(httpCode > 0) {
+        // HTTP header has been sent and Server response header has been handled
+#ifdef DEBUG        
+        USE_SERIAL.printf(strHTTP1, httpCode);
+#endif        
+
+        // file found at server
+        if(httpCode == HTTP_CODE_OK) {
+            String payload = http.getString();
+#ifdef DEBUG
+            USE_SERIAL.println(payload);
+#endif            
+        }
+    } else {
+#ifdef DEBUG        
+        USE_SERIAL.printf(strErrorHTTP1, http.errorToString(httpCode).c_str());
+#endif        
+    }
+
+    http.end();
+}
+
 /**
  * Configura la conexión WiFi
  * 
@@ -201,7 +252,7 @@ void setupWifi() {
 
     WiFi.mode(WIFI_STA);
 
-    WiFi.begin(SSID, SSID_PASSWORD);
+    WiFi.begin(mySSID, mySSID_PASSWORD);
   
     connected = false;
 
@@ -289,7 +340,8 @@ void setupWifi() {
             USE_SERIAL.printf("URL 1 %s\n", URLHumedad);
             USE_SERIAL.printf("URL 1 %s\n", URLHIC);
 #endif
-      
+
+            getIntervalValue();
         }
     }
     else {
@@ -333,6 +385,21 @@ void setup() {
     lastMsg = -INTERVALO;
 }
 
+void dumpData(float h, float t, float hic) {
+#ifdef DEBUG
+    USE_SERIAL.println("Y los datos son ...");
+    USE_SERIAL.print("Humidity: ");
+    USE_SERIAL.print(h);
+    USE_SERIAL.print(" %\t");
+    USE_SERIAL.print("Temperature: ");
+    USE_SERIAL.print(t);
+    USE_SERIAL.print(" *C \t");
+    USE_SERIAL.print("Heat index: ");
+    USE_SERIAL.print(hic);
+    USE_SERIAL.println(" *C ");
+#endif
+}
+
 void tryConnectAgain() {
     setupWifi();
 }
@@ -367,12 +434,12 @@ void loop() {
         tryConnectAgain();
         if (!connected) {
             switch(intento) {
-                case 0: delay(15000);
-                        DebugPrint("Esperando al segundo intento\n");
+                case 0: DebugPrint("Esperando al segundo intento\n");
+                        delay(15000);
                         intento = 1;
                         break;
-                case 1: delay(30000);
-                        DebugPrint("Esperando al tercer intento\n");
+                case 1: DebugPrint("Esperando al tercer intento\n");
+                        delay(30000);
                         intento = 2;
                         break;
                 default: intento = 0;
@@ -404,6 +471,7 @@ void loop() {
 #ifdef DEBUG
         USE_SERIAL.printf("No estoy conectado por algun motivo %d\n",WiFi.status());
         delay(500);
+        intento = 0;
         connected = 0;
 #endif        
         return;    
@@ -478,111 +546,29 @@ void loop() {
     // Compute heat index in Celsius (isFahreheit = false)
     hic = dht.computeHeatIndex(t, h, false);
 
-#ifdef DEBUG
-    USE_SERIAL.println("Y los datos son ...");
-    USE_SERIAL.print("Humidity: ");
-    USE_SERIAL.print(h);
-    USE_SERIAL.print(" %\t");
-    USE_SERIAL.print("Temperature: ");
-    USE_SERIAL.print(t);
-    USE_SERIAL.print(" *C \t");
-    USE_SERIAL.print("Heat index: ");
-    USE_SERIAL.print(hic);
-    USE_SERIAL.println(" *C ");
-#endif
- 
-    // configure traged server and url
-    //http.begin("https://192.168.1.12/test.html", "7a 9c f4 db 40 d3 62 5a 6e 21 bc 5c cc 66 c8 3e a1 45 59 38"); //HTTPS
+    dumpData(h,t,hic);
+    
+//
+// Ahora con la Temperatura
+//
+
 #ifdef DEBUG
     USE_SERIAL.print("[HTTP] begin Temperature...\n");
 #endif    
-    http.begin(URLTemp);    //HTTP
 
     dtostrf(t, 5, 2, msg);
-
-#ifdef DEBUG
-    USE_SERIAL.print("[HTTP] PUT: Value: ");
-    USE_SERIAL.println(msg);
-#endif
-
-    // start connection and send HTTP header
-    
-    httpCode = http.sendRequest("PUT", msg);
-
-#ifdef DEBUG
-    USE_SERIAL.print("URL a usar ");
-    USE_SERIAL.println(URLTemp);  
-#endif
-
-    // httpCode will be negative on error
-    if(httpCode > 0) {
-        // HTTP header has been send and Server response header has been handled
-        USE_SERIAL.printf(strHTTP1, httpCode);
-
-        // file found at server
-        if(httpCode == HTTP_CODE_OK) {
-            String payload = http.getString();
-#ifdef DEBUG
-            USE_SERIAL.print(" and this is the payload");
-            USE_SERIAL.println(payload);
-#endif            
-        }
-    } else {
-#ifdef DEBUG        
-        USE_SERIAL.printf(strErrorHTTP1, http.errorToString(httpCode).c_str());
-#endif        
-    }
-
-    http.end();
+    sendSensorValue(URLTemp, msg);
 
 //
 // Ahora con la humedad
 //
+
 #ifdef DEBUG
     USE_SERIAL.print("[HTTP] begin Humidity...\n");
 #endif    
-    // configure traged server and url
-    //http.begin("https://192.168.1.12/test.html", "7a 9c f4 db 40 d3 62 5a 6e 21 bc 5c cc 66 c8 3e a1 45 59 38"); //HTTPS
-    http.begin(URLHumedad); //HTTP
 
     dtostrf(h, 5, 2, msg);
-
-#ifdef DEBUG    
-    USE_SERIAL.print("[HTTP] PUT: Value: ");
-    USE_SERIAL.println(msg);
-#endif
-
-    // start connection and send HTTP header
-    
-    httpCode = http.sendRequest("PUT", msg);
-
-#ifdef DEBUG
-    USE_SERIAL.print("URL a usar ");
-    USE_SERIAL.println(URLHumedad);  
-#endif
-
-    // httpCode will be negative on error
-    if(httpCode > 0) {
-        // HTTP header has been send and Server response header has been handled
-#ifdef DEBUG        
-        USE_SERIAL.printf(strHTTP1, httpCode);
-#endif        
-
-        // file found at server
-        if(httpCode == HTTP_CODE_OK) {
-            String payload = http.getString();
-#ifdef DEBUG
-            USE_SERIAL.println(payload);
-#endif            
-        }
-    } else {
-#ifdef DEBUG        
-        USE_SERIAL.printf(strErrorHTTP1, http.errorToString(httpCode).c_str());
-#endif        
-    }
-
-    http.end();
-
+    sendSensorValue(URLHumedad, msg);
 
 //
 // Ahora con Heat Index
@@ -591,50 +577,19 @@ void loop() {
 #ifdef DEBUG
     USE_SERIAL.print("[HTTP] begin Heat Index...\n");
 #endif    
-    // configure traged server and url
-    //http.begin("https://192.168.1.12/test.html", "7a 9c f4 db 40 d3 62 5a 6e 21 bc 5c cc 66 c8 3e a1 45 59 38"); //HTTPS
-    http.begin(URLHIC); //HTTP
 
     dtostrf(hic, 5, 2, msg);
-#ifdef DEBUG    
-    USE_SERIAL.print("[HTTP] PUT: Value: ");
-    USE_SERIAL.println(msg);
-#endif    
-    // start connection and send HTTP header
-    
-    httpCode = http.sendRequest("PUT", msg);
-
-#ifdef DEBUG
-    USE_SERIAL.print("URL a usar ");
-    USE_SERIAL.println(URLHIC);  
-#endif
-    
-
-    // httpCode will be negative on error
-    if(httpCode > 0) {
-        // HTTP header has been send and Server response header has been handled
-#ifdef DEBUG        
-        USE_SERIAL.printf(strHTTP1, httpCode);
-#endif        
-
-        // file found at server
-        if(httpCode == HTTP_CODE_OK) {
-            String payload = http.getString();
-#ifdef DEBUG
-            USE_SERIAL.println(payload);
-#endif            
-        }
-    } else {
-#ifdef DEBUG        
-        USE_SERIAL.printf(strErrorHTTP1, http.errorToString(httpCode).c_str());
-#endif        
-    }
-
-    http.end();
-
+    sendSensorValue(URLHIC, msg);
+   
     // Señalizo que he enviado los mensajes
 
     blink(3, D4, 400, 200);
+
+    ++nLoop;
+    if (nLoop == 4) {
+        getIntervalValue();
+        nLoop = 0;
+    }
 }
 
 
