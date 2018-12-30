@@ -1,3 +1,4 @@
 Código de sensor para OpenHAB 
-ESP8266 Arduino
+ESP8266 **Arduino**
+
 
