@@ -7,9 +7,9 @@ El principal propósito es didáctico, por lo que el código no está optimizado al 
 ## Notas
 Para un corrector funcionamiento necesita de un fichero **wifi.h** que defina el valor de:
 
-`
+```
 #define mySSID "identificadorSSID"
 #define mySSID_PASSWORD "acceso a la Wifi"
-`
+```
 
 
