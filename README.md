@@ -10,5 +10,5 @@ Para un corrector funcionamiento necesita de un fichero **wifi.h**. Este fichero
 
 ```
 #define mySSID "identificadorSSID"
-#define mySSID_PASSWORD "acceso a la Wifi"
+#define mySSID_PASSWORD "Password acceso a la Wifi"
 ```
