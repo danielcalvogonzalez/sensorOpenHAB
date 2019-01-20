@@ -6,7 +6,7 @@ Código **Arduino** para implementar la lectura de sensores DHT22 y reportar su v
 El principal propósito es didáctico, por lo que el código no está optimizado al 100%.
 
 ## Notas
-Para un corrector funcionamiento necesita de un fichero **wifi.h** que defina el valor de:
+Para un corrector funcionamiento necesita de un fichero **wifi.h**. Este fichero debe definir el valor de:
 
 ```
 #define mySSID "identificadorSSID"
