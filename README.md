@@ -11,4 +11,5 @@ Para un corrector funcionamiento necesita de un fichero **wifi.h**. Este fichero
 ```
 #define mySSID "identificadorSSID"
 #define mySSID_PASSWORD "Password acceso a la Wifi"
+const char *URL     = "http://IP_Address_:port/rest/items/";
 ```

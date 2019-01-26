@@ -23,7 +23,8 @@
 #include <StreamString.h>
 #include <DHT.h>
 
-#include "wifi.h"               // Este fichero define el nombre de la SSID y la palabra de acceso
+#include "wifi.h"               // Este fichero define el nombre de la SSID, la palabra de acceso 
+                                // y la dirección del servidor REST de openHAB
 
 #define USE_SERIAL Serial
 #define DHTPIN      4
@@ -45,14 +46,19 @@ DHT dht(DHTPIN, DHTTYPE);
 
 /*
  * const char *URLTemp       = "http://192.168.1.6:8080/rest/items/DespachoTemp/state";
-const char *URLHumedad    = "http://192.168.1.6:8080/rest/items/DespachoHumedad/state";
-const char *URLHIC        = "http://192.168.1.6:8080/rest/items/DespachoHIC/state";
 */
-const char *strError1     = "==**== Abortando ==**== ";
+const char *strError1     = "==**== Aborting ==**== ";
 const char *strErrorHTTP1 = "[HTTP] PUT... failed, error: %s\n";
 const char *strHTTP1      = "[HTTP] PUT... return code: %d\n";
 
-const char *URL     = "http://192.168.24.6:8080/rest/items/";
+/*
+ * 
+ * En el fichero .h debe estar definida la variabla URL
+ * 
+ * const char *URL     = "http://openHAB_Server:port:8080/rest/items/";
+ * 
+ */
+
 const char *sensor1 = "Temp";
 const char *sensor2 = "Humedad";
 const char *sensor3 = "HIC";
@@ -83,6 +89,20 @@ IPAddress ip, gw, mask;
 
 boolean connected = false;
 
+/*
+// Define where debug output will be printed.
+#define DEBUG_PRINTER Serial
+
+// Setup debug printing macros.
+#ifdef DHT_DEBUG
+  #define DEBUG_PRINT(...) { DEBUG_PRINTER.print(__VA_ARGS__); }
+  #define DEBUG_PRINTLN(...) { DEBUG_PRINTER.println(__VA_ARGS__); }
+#else
+  #define DEBUG_PRINT(...) {}
+  #define DEBUG_PRINTLN(...) {}
+#endif
+ * 
+ */
 /*
 typedef enum {
     WL_NO_SHIELD        = 255,   // for compatibility with WiFi Shield library
@@ -122,6 +142,23 @@ void blink(int veces, int pin, int tiempoON, int tiempoOFF) {
 
 /**
  * 
+ * Crea la petición URL para acceder a un objeto via REST.
+ * 
+ * URL es una variable global que contiene la dirección del servidor openHAB
+ * state es una vatiable global que define como se acceder al estado de un item
+ * item es una cadena con el nombre del objeto.
+ * 
+ * NOTA: request debe permitir unos 80 caracteres para formar la petición.
+ * 
+ */
+void getURLState(char *request, char *item){
+    strcpy(request, URL);
+    strcat(request, item);
+    strcat(request, state);   
+}
+
+/**
+ * 
  * Intenta obtener el intervalo al que hará polling 
  * de los sensores.
  * Se utiliza confInterval como nombre del item.
@@ -136,9 +173,11 @@ void getIntervalValue(void) {
     int httpCode;
     unsigned long numero;
 
-    strcpy(URLrequest, URL);
-    strcat(URLrequest, confInterval);
-    strcat(URLrequest, state);
+    getURLState(URLrequest, (char *) confInterval);
+    
+//    strcpy(URLrequest, URL);
+//    strcat(URLrequest, confInterval);
+//    strcat(URLrequest, state);
 
     // URLrequest contiene la petición REST formada
 
@@ -163,6 +202,7 @@ void getIntervalValue(void) {
     
 }
 
+
 /**
  * 
  * Intenta obtener el nombre del sensor del servidor OpenHAB
@@ -177,10 +217,12 @@ boolean getSensorName(void) {
     char URLrequest[80];
     int httpCode;
 
-    strcpy(URLrequest, URL);
-    strcat(URLrequest, macAddressREST);
-    strcat(URLrequest, state);
+//    strcpy(URLrequest, URL);
+//    strcat(URLrequest, macAddressREST);
+//    strcat(URLrequest, state);
 
+    getURLState(URLrequest, macAddressREST);
+    
     // URLrequest contiene la petición REST formada
 
     DebugPrint(URLrequest);
@@ -321,8 +363,8 @@ void setupWifi() {
         }
         else {
             strcpy(URLTemp, URL);
-            strcat(URLTemp, sensorName);
             
+            strcat(URLTemp, sensorName);           
             strcpy(URLHumedad, URLTemp);
             strcpy(URLHIC, URLTemp);
 
